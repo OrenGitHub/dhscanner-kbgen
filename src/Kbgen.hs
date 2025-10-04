@@ -70,6 +70,7 @@ module Kbgen (
     Param(..),
     Class(..),
     Call(..),
+    Callable(..),
     Keyword(..),
     Resolved(..),
     Arg(..),
@@ -414,7 +415,6 @@ data Arg = Arg Location deriving ( Show, Generic, ToJSON, FromJSON )
 data Call = Call Location deriving ( Show, Generic, ToJSON, FromJSON )
 data Param = Param Location deriving ( Show, Generic, ToJSON, FromJSON )
 data Class = Class Location deriving ( Show, Generic, ToJSON, FromJSON )
-data Callable = Callable Location deriving ( Show, Generic, ToJSON, FromJSON )
 
 data CallResolved = CallResolved
     Call -- ^
