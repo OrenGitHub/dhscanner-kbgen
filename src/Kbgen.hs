@@ -133,7 +133,7 @@ data KeywordArgForCall = KeywordArgForCall
     Keyword -- ^
     Arg -- ^
     Call -- ^
-    deriving ( Show, Generic, ToJSON, FromJSON )
+    deriving ( Show, Eq, Ord, Generic, ToJSON, FromJSON )
 
 -- |
 --
@@ -172,7 +172,7 @@ data KeywordArgForCall = KeywordArgForCall
 data ParamResolvedType = ParamResolvedType
     Param -- ^
     ResolvedType -- ^
-    deriving ( Show, Generic, ToJSON, FromJSON )
+    deriving ( Show, Eq, Ord, Generic, ToJSON, FromJSON )
 
 -- |
 --
@@ -216,7 +216,7 @@ data ParamResolvedType = ParamResolvedType
 data ClassName = ClassName
     Class -- ^
     Token.ClassName -- ^
-    deriving ( Show, Generic, ToJSON, FromJSON )
+    deriving ( Show, Eq, Ord, Generic, ToJSON, FromJSON )
 
 -- |
 --
@@ -285,7 +285,7 @@ data ClassName = ClassName
 data ParamName = ParamName
     Param -- ^
     Token.ParamName -- ^
-    deriving ( Show, Generic, ToJSON, FromJSON )
+    deriving ( Show, Eq, Ord, Generic, ToJSON, FromJSON )
 
 -- |
 --
@@ -307,7 +307,7 @@ data ParamName = ParamName
 data ClassNamedSuper = ClassNamedSuper
     Class -- ^
     Token.SuperName -- ^
-    deriving ( Show, Generic, ToJSON, FromJSON )
+    deriving ( Show, Eq, Ord, Generic, ToJSON, FromJSON )
 
 -- |
 --
@@ -323,26 +323,26 @@ data ClassNamedSuper = ClassNamedSuper
 data ClassResolvedSuper = ClassResolvedSuper
     Class -- ^
     ResolvedSuper -- ^ ( 1 fact per super class )
-    deriving ( Show, Generic, ToJSON, FromJSON )
+    deriving ( Show, Eq, Ord, Generic, ToJSON, FromJSON )
 
 -- |
 -- capture inheritance from third party classes
 data ClassAnnotation = ClassAnnotation
     Class -- ^
     Annotation -- ^
-    deriving ( Show, Generic, ToJSON, FromJSON )
+    deriving ( Show, Eq, Ord, Generic, ToJSON, FromJSON )
 
 data CallableAnnotation = CallableAnnotation
     Callable -- ^
     Annotation -- ^
-    deriving ( Show, Generic, ToJSON, FromJSON )
+    deriving ( Show, Eq, Ord, Generic, ToJSON, FromJSON )
 
 -- |
 -- capture usage of inherited third party methods
 data MethodOfClass = MethodOfClass
     Method -- ^
     Class -- ^
-    deriving ( Show, Generic, ToJSON, FromJSON )
+    deriving ( Show, Eq, Ord, Generic, ToJSON, FromJSON )
 
 -- |
 --
@@ -360,7 +360,7 @@ data ArgiForCall = ArgiForCall
     Arg -- ^
     ArgIndex -- ^
     Call -- ^
-    deriving ( Show, Generic, ToJSON, FromJSON )
+    deriving ( Show, Eq, Ord, Generic, ToJSON, FromJSON )
 
 -- |
 --
@@ -377,7 +377,7 @@ data ArgiForCall = ArgiForCall
 data ArgForCall = ArgForCall
     Arg -- ^
     Call -- ^
-    deriving ( Show, Generic, ToJSON, FromJSON )
+    deriving ( Show, Eq, Ord, Generic, ToJSON, FromJSON )
 
 -- |
 --
@@ -395,7 +395,7 @@ data ParamiOfCallable = ParamiOfCallable
     Param -- ^
     ParamIndex -- ^ 0-based
     Callable -- ^
-    deriving ( Show, Generic, ToJSON, FromJSON )
+    deriving ( Show, Eq, Ord, Generic, ToJSON, FromJSON )
 
 -- |
 --
@@ -412,36 +412,36 @@ data ParamiOfCallable = ParamiOfCallable
 data ConstString = ConstString
     ConstStr -- ^
     Token.ConstStr -- ^
-    deriving ( Show, Generic, ToJSON, FromJSON )
+    deriving ( Show, Eq, Ord, Generic, ToJSON, FromJSON )
 
-data Arg = Arg Location deriving ( Show, Generic, ToJSON, FromJSON )
-data Call = Call Location deriving ( Show, Generic, ToJSON, FromJSON )
-data Param = Param Location deriving ( Show, Generic, ToJSON, FromJSON )
-data Class = Class Location deriving ( Show, Generic, ToJSON, FromJSON )
+data Arg = Arg Location deriving ( Show, Eq, Ord, Generic, ToJSON, FromJSON )
+data Call = Call Location deriving ( Show, Eq, Ord, Generic, ToJSON, FromJSON )
+data Param = Param Location deriving ( Show, Eq, Ord, Generic, ToJSON, FromJSON )
+data Class = Class Location deriving ( Show, Eq, Ord, Generic, ToJSON, FromJSON )
 
 data CallResolved = CallResolved
     Call -- ^
     Resolved -- ^
-    deriving ( Show, Generic, ToJSON, FromJSON )
+    deriving ( Show, Eq, Ord, Generic, ToJSON, FromJSON )
 
-data Method = Method Location deriving ( Show, Generic, ToJSON, FromJSON )
-data Callable = Callable Location deriving ( Show, Generic, ToJSON, FromJSON )
-data ConstStr = ConstStr Location deriving ( Show, Generic, ToJSON, FromJSON )
-data Annotation = Annotation Location deriving ( Show, Generic, ToJSON, FromJSON )
-data ConstBoolTrue = ConstBoolTrue Location deriving ( Show, Generic, ToJSON, FromJSON )
+data Method = Method Location deriving ( Show, Eq, Ord, Generic, ToJSON, FromJSON )
+data Callable = Callable Location deriving ( Show, Eq, Ord, Generic, ToJSON, FromJSON )
+data ConstStr = ConstStr Location deriving ( Show, Eq, Ord, Generic, ToJSON, FromJSON )
+data Annotation = Annotation Location deriving ( Show, Eq, Ord, Generic, ToJSON, FromJSON )
+data ConstBoolTrue = ConstBoolTrue Location deriving ( Show, Eq, Ord, Generic, ToJSON, FromJSON )
 
-data Keyword = Keyword String deriving ( Show, Generic, ToJSON, FromJSON )
-data Resolved = Resolved Fqn deriving ( Show, Generic, ToJSON, FromJSON )
-data ArgIndex = ArgIndex Word deriving ( Show, Generic, ToJSON, FromJSON )
-data ParamIndex = ParamIndex Word deriving ( Show, Generic, ToJSON, FromJSON )
-data ConstStrValue = ConstStrValue String deriving ( Show, Generic, ToJSON, FromJSON )
+data Keyword = Keyword String deriving ( Show, Eq, Ord, Generic, ToJSON, FromJSON )
+data Resolved = Resolved Fqn deriving ( Show, Eq, Ord, Generic, ToJSON, FromJSON )
+data ArgIndex = ArgIndex Word deriving ( Show, Eq, Ord, Generic, ToJSON, FromJSON )
+data ParamIndex = ParamIndex Word deriving ( Show, Eq, Ord, Generic, ToJSON, FromJSON )
+data ConstStrValue = ConstStrValue String deriving ( Show, Eq, Ord, Generic, ToJSON, FromJSON )
 
 -- |
 data ResolvedType = ResolvedType
     Fqn -- ^
-    deriving ( Show, Generic, ToJSON, FromJSON )
+    deriving ( Show, Eq, Ord, Generic, ToJSON, FromJSON )
 
-data ResolvedSuper = ResolvedSuper Fqn deriving ( Show, Generic, ToJSON, FromJSON )
+data ResolvedSuper = ResolvedSuper Fqn deriving ( Show, Eq, Ord, Generic, ToJSON, FromJSON )
 
 -- |
 -- * each fact is derived from a /single/ bitcode 'Bitcode.Instruction'
@@ -464,7 +464,7 @@ data Fact
    | ParamResolvedTypeCtor ParamResolvedType
    | ClassResolvedSuperCtor ClassResolvedSuper
    | CallableAnnotationCtor CallableAnnotation
-   deriving ( Show, Generic, ToJSON, FromJSON )
+   deriving ( Show, Eq, Ord, Generic, ToJSON, FromJSON )
 
 -- |
 -- Translate a code fact into a prolog fact
@@ -582,11 +582,22 @@ prologify_ParamiOfCallable' p i c = printf "kb_param_i_of_callable( %s, %u, %s )
 prologify_ParamiOfCallable :: ParamiOfCallable -> String
 prologify_ParamiOfCallable (ParamiOfCallable (Param p) (ParamIndex i) (Callable c)) = prologify_ParamiOfCallable' p i c
 
+normalizeChar :: Char -> String
+normalizeChar '/' = "_slash_"
+normalizeChar '.' = "_dot_"
+normalizeChar '-' = "_dash_"
+normalizeChar '['  = "_lbrack_"
+normalizeChar ']'  = "_rbrack_"
+normalizeChar c = [c]
+
+normalize :: FilePath -> FilePath
+normalize path = concatMap normalizeChar path
+
 locationify :: Location -> String
 locationify l = let
     x = Location.lineStart l
     y = Location.colStart l
     z = Location.lineEnd l
     w = Location.colEnd l
-    f = Location.filename l
+    f = normalize (Location.filename l)
     in printf "startloc_%u_%u_endloc_%u_%u_%s" x y z w f
