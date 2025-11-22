@@ -56,6 +56,7 @@ module Kbgen (
     ParamResolvedType(..),
     ClassName(..),
     ParamName(..),
+    CallMethodOfSuper(..),
     ConstString(..),
     ArgForCall(..),
     MethodOfClass(..),
@@ -77,6 +78,7 @@ module Kbgen (
     Resolved(..),
     ArgIndex(..),
     ParamIndex(..),
+    MethodName(..),
     ResolvedType(..),
     CallResolved(..),
     ResolvedSuper(..),
@@ -289,6 +291,55 @@ data ParamName = ParamName
 
 -- |
 --
+-- __Name__
+--
+-- This is how the fact will look inside the Prolog file
+--
+-- @
+-- kb_call_method_of_super( Call, Method, ResolvedSuper ).
+-- @
+--
+-- __When should I use this fact__ ( motivation: [CVE-2024-53995](https://nvd.nist.gov/vuln/detail/CVE-2024-53995) )
+--
+-- @
+-- # index.py
+-- from tornado.web import RequestHandler
+-- class BaseHandler(RequestHandler): ...
+--
+-- # authentication.py
+-- class LoginHandler(BaseHandler):
+--     def post(self, ...):
+--         n = self.get_query_argument("next", ...)
+--         self.redirect(n or ...)
+-- @
+--
+-- See complete source example [here](https://github.com/SickChill/sickchill/blob/846adafdfab579281353ea08a27bbb813f9a9872/sickchill/views/authentication.py#L10),
+-- [here](https://github.com/SickChill/sickchill/blob/846adafdfab579281353ea08a27bbb813f9a9872/sickchill/views/index.py#L35)
+-- and [here](https://github.com/SickChill/sickchill/blob/846adafdfab579281353ea08a27bbb813f9a9872/sickchill/views/index.py#L15)
+--
+-- __Writing a predicate with this fact and others__ ( motivation: [CVE-2024-53995](https://nvd.nist.gov/vuln/detail/CVE-2024-53995) )
+--
+-- @
+-- user_controlled_query_argument( Call ) :-
+--     kb_call_method_of_super( Call, \'get_query_argument\', \'tornado.web.RequestHandler\' ),
+--     kb_arg_i_for_call( QueryParamName, 0, Call),
+--     kb_const_string( QueryParamName, _ ).
+--
+-- @
+--
+-- Other facts combined in this predicate:
+--
+--     * 'ArgiForCall'
+--     * 'ConstString'
+--
+data CallMethodOfSuper = CallMethodOfSuper
+    Call -- ^
+    MethodName -- ^
+    ResolvedSuper -- ^
+    deriving ( Show, Eq, Ord, Generic, ToJSON, FromJSON )
+
+-- |
+--
 -- Usage:
 --
 -- @
@@ -434,6 +485,7 @@ data Keyword = Keyword String deriving ( Show, Eq, Ord, Generic, ToJSON, FromJSO
 data Resolved = Resolved Fqn deriving ( Show, Eq, Ord, Generic, ToJSON, FromJSON )
 data ArgIndex = ArgIndex Word deriving ( Show, Eq, Ord, Generic, ToJSON, FromJSON )
 data ParamIndex = ParamIndex Word deriving ( Show, Eq, Ord, Generic, ToJSON, FromJSON )
+data MethodName = MethodName String deriving ( Show, Eq, Ord, Generic, ToJSON, FromJSON )
 data ConstStrValue = ConstStrValue String deriving ( Show, Eq, Ord, Generic, ToJSON, FromJSON )
 
 -- |
@@ -462,6 +514,7 @@ data Fact
    | ParamiOfCallableCtor ParamiOfCallable
    | KeywordArgForCallCtor KeywordArgForCall
    | ParamResolvedTypeCtor ParamResolvedType
+   | CallMethodOfSuperCtor CallMethodOfSuper
    | ClassResolvedSuperCtor ClassResolvedSuper
    | CallableAnnotationCtor CallableAnnotation
    deriving ( Show, Eq, Ord, Generic, ToJSON, FromJSON )
@@ -488,6 +541,7 @@ prologify (ClassNamedSuperCtor content) = prologifyClassNamedSuper content
 prologify (ClassAnnotationCtor content) = prologify_ClassAnnotation content
 prologify (ParamiOfCallableCtor content) = prologify_ParamiOfCallable content
 prologify (ParamResolvedTypeCtor content) = prologify_ParamResolvedType content
+prologify (CallMethodOfSuperCtor content) = prologify_CallMethodOfSuper content
 prologify (KeywordArgForCallCtor content) = prologify_KeywordArgForCall content
 prologify (ClassResolvedSuperCtor content) = prologifyClassResolvedSuper content
 prologify (CallableAnnotationCtor content) = prologify_CallableAnnotation content
@@ -497,6 +551,12 @@ prologify_ParamResolvedType' l fqn = printf "kb_param_has_type( %s, \'%s\' )." (
 
 prologify_ParamResolvedType :: ParamResolvedType -> String
 prologify_ParamResolvedType (ParamResolvedType (Param loc) (ResolvedType (Fqn content))) = prologify_ParamResolvedType' loc content
+
+prologify_CallMethodOfSuper' :: Location -> String -> String -> String
+prologify_CallMethodOfSuper' call method super = printf "kb_call_method_of_super( %s, \'%s\', \'%s\' )." (locationify call) method super
+
+prologify_CallMethodOfSuper :: CallMethodOfSuper -> String
+prologify_CallMethodOfSuper (CallMethodOfSuper (Call loc) (MethodName m) (ResolvedSuper (Fqn s))) = prologify_CallMethodOfSuper' loc m s
 
 prologify_ParamName' :: Location -> String -> String
 prologify_ParamName' l name = printf "kb_param_has_name( %s, \'%s\' )." (locationify l) name
