@@ -510,8 +510,11 @@ prologify_ClassName' l name = printf "kb_class_name( %s, \'%s\' )." (locationify
 prologify_ClassName :: ClassName -> String
 prologify_ClassName (ClassName (Class loc) (Token.ClassName (Token.Named name _))) = prologify_ClassName' loc name
 
+unquote :: String -> String
+unquote = filter (/= '\'')
+
 prologify_ConstString' :: Location -> String -> String
-prologify_ConstString' l value = printf "kb_const_string( %s, \'%s\' )." (locationify l) value
+prologify_ConstString' l value = printf "kb_const_string( %s, \'%s\' )." (locationify l) (unquote value)
 
 prologify_ConstString :: ConstString -> String
 prologify_ConstString (ConstString (ConstStr loc) (Token.ConstStr value _)) = prologify_ConstString' loc value
