@@ -33,7 +33,7 @@ description:
         * explain in plain English your query's purpose
         * et voilà !
 
-version:            1.0.12
+version:            1.0.18
 license:            GPL-3.0-only
 license-file:       LICENSE
 author:             OrenGitHub
@@ -59,8 +59,8 @@ library
         aeson < 2.3,
         base >= 4.18 && < 4.19,
         containers < 0.7,
-        dhscanner-ast >= 1.1.2,
-        dhscanner-bitcode >= 1.0.10
+        dhscanner-ast >= 1.1.4,
+        dhscanner-bitcode >= 1.0.14
 
     hs-source-dirs:
         src

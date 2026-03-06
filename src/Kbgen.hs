@@ -54,13 +54,14 @@
 module Kbgen (
     KeywordArgForCall(..),
     ParamResolvedType(..),
-    ClassName(..),
+    ClassDef(..),
     ParamName(..),
-    CallMethodOfSuper(..),
+    CallMethodOfClass(..),
     ConstString(..),
     ArgForCall(..),
     MethodOfClass(..),
-    ClassResolvedSuper(..),
+    ClassHas1stPartySuper(..),
+    ClassHas3rdPartySuper(..),
     ClassNamedSuper(..),
     ArgiForCall(..),
     ConstBoolTrue(..),
@@ -82,6 +83,9 @@ module Kbgen (
     ResolvedType(..),
     CallResolved(..),
     ResolvedSuper(..),
+    ClassDefinedInFile(..),
+    SuperDefinedInFile(..),
+    SuperQualifiedName(..),
     ConstStr(..),
     Fact(..)
 )
@@ -95,7 +99,7 @@ import GHC.Generics
 -- project imports
 import Location
 import qualified Token
-import Fqn hiding ( content )
+import qualified Fqn
 
 -- |
 --
@@ -183,7 +187,7 @@ data ParamResolvedType = ParamResolvedType
 -- This is how the fact will look inside the Prolog file
 --
 -- @
--- kb_class_name( Class, Name ).
+-- kb_class_def( Class, Name, DefinedInFile ).
 -- @
 --
 -- __When should I use this fact__ ( motivation: [CVE-2024-53995](https://nvd.nist.gov/vuln/detail/CVE-2024-53995) )
@@ -205,19 +209,21 @@ data ParamResolvedType = ParamResolvedType
 --
 -- @
 -- skip_level_subclass_of( Subclass, \'tornado.web.RequestHandler\' ) :-
---     kb_class_name( Class, ClassType ),
---     kb_class_named_super( Subclass, ClassType ),
---     kb_class_resolved_super( Class, \'tornado.web.RequestHandler\' ).
+--     kb_class_def( Subclass, _, _ ),
+--     kb_class_has_1st_party_super( Subclass, ClassName, ClassDefinedInFile ),
+--     kb_class_def( Class, ClassName, ClassDefinedInFile )
+--     kb_class_has_3rd_party_super( Class, _, \'tornado.web.RequestHandler\' ).
 -- @
 --
 -- Other facts combined in this predicate:
 --
---     * 'ClassNamedSuper'
---     * 'ClassResolvedSuper'
+--     * 'ClassHas1stPartySuper'
+--     * 'ClassHas3rdPartySuper'
 --
-data ClassName = ClassName
+data ClassDef = ClassDef
     Class -- ^
     Token.ClassName -- ^
+    ClassDefinedInFile -- ^
     deriving ( Show, Eq, Ord, Generic, ToJSON, FromJSON )
 
 -- |
@@ -296,7 +302,7 @@ data ParamName = ParamName
 -- This is how the fact will look inside the Prolog file
 --
 -- @
--- kb_call_method_of_super( Call, Method, ResolvedSuper ).
+-- kb_call_method_of_class( Call, Method, Class ).
 -- @
 --
 -- __When should I use this fact__ ( motivation: [CVE-2024-53995](https://nvd.nist.gov/vuln/detail/CVE-2024-53995) )
@@ -321,21 +327,22 @@ data ParamName = ParamName
 --
 -- @
 -- user_controlled_query_argument( Call ) :-
---     kb_call_method_of_super( Call, \'get_query_argument\', \'tornado.web.RequestHandler\' ),
+--     kb_call_method_of_class( Call, \'get_query_argument\', Class ),
+--     kb_class_has_3rd_party_super( Class, \'tornado.web.RequestHandler\'),
 --     kb_arg_i_for_call( QueryParamName, 0, Call),
 --     kb_const_string( QueryParamName, _ ).
---
 -- @
 --
 -- Other facts combined in this predicate:
 --
+--     * 'ClassHas3rdPartySuper'
 --     * 'ArgiForCall'
 --     * 'ConstString'
 --
-data CallMethodOfSuper = CallMethodOfSuper
+data CallMethodOfClass = CallMethodOfClass
     Call -- ^
     MethodName -- ^
-    ResolvedSuper -- ^
+    Class -- ^
     deriving ( Show, Eq, Ord, Generic, ToJSON, FromJSON )
 
 -- |
@@ -362,18 +369,94 @@ data ClassNamedSuper = ClassNamedSuper
 
 -- |
 --
--- * usually used with 'ClassNamedSuper'
--- * for bounded inheritance of third party classes
+-- __Name__
 --
--- ==== __Example:__
+-- This is how the fact will look inside the Prolog file
 --
 -- @
--- kb_class_super_name(Class,SuperFqsdfsdfsdfn).
+-- kb_class_has_1st_party_super( Class, SuperName, SuperDefinedInFile ).
 -- @
 --
-data ClassResolvedSuper = ClassResolvedSuper
+-- __When should I use this fact__ ( motivation: [CVE-2024-53995](https://nvd.nist.gov/vuln/detail/CVE-2024-53995) )
+--
+-- @
+-- # authentication.py
+-- class LoginHandler(BaseHandler): ...
+--
+-- # index.py
+-- from tornado.web import RequestHandler
+-- class BaseHandler(RequestHandler): ...
+-- @
+--
+-- See complete source example [here](https://github.com/SickChill/sickchill/blob/846adafdfab579281353ea08a27bbb813f9a9872/sickchill/views/authentication.py#L10),
+-- [here](https://github.com/SickChill/sickchill/blob/846adafdfab579281353ea08a27bbb813f9a9872/sickchill/views/index.py#L35)
+-- and [here](https://github.com/SickChill/sickchill/blob/846adafdfab579281353ea08a27bbb813f9a9872/sickchill/views/index.py#L15)
+--
+-- __Writing a predicate with this fact and others__ ( motivation: [CVE-2024-53995](https://nvd.nist.gov/vuln/detail/CVE-2024-53995) )
+--
+-- @
+-- skip_level_subclass_of( Subclass, \'tornado.web.RequestHandler\' ) :-
+--     kb_class_def( Subclass, _, _ ),
+--     kb_class_has_1st_party_super( Subclass, ClassName, ClassDefinedInFile ),
+--     kb_class_def( Class, ClassName, ClassDefinedInFile )
+--     kb_class_has_3rd_party_super( Class, _, \'tornado.web.RequestHandler\' ).
+-- @
+--
+-- Other facts combined in this predicate:
+--
+--     * 'ClassDef'
+--     * 'ClassHas3rdPartySuper'
+--
+data ClassHas1stPartySuper = ClassHas1stPartySuper
     Class -- ^
-    ResolvedSuper -- ^ ( 1 fact per super class )
+    Token.SuperName -- ^
+    SuperDefinedInFile -- ^
+    deriving ( Show, Eq, Ord, Generic, ToJSON, FromJSON )
+
+-- |
+--
+-- __Name__
+--
+-- This is how the fact will look inside the Prolog file
+--
+-- @
+-- kb_class_has_3rd_party_super( Class, SuperName, SuperQualifiedName ).
+-- @
+--
+-- __When should I use this fact__ ( motivation: [CVE-2024-53995](https://nvd.nist.gov/vuln/detail/CVE-2024-53995) )
+--
+-- @
+-- # authentication.py
+-- class LoginHandler(BaseHandler): ...
+--
+-- # index.py
+-- from tornado.web import RequestHandler
+-- class BaseHandler(RequestHandler): ...
+-- @
+--
+-- See complete source example [here](https://github.com/SickChill/sickchill/blob/846adafdfab579281353ea08a27bbb813f9a9872/sickchill/views/authentication.py#L10),
+-- [here](https://github.com/SickChill/sickchill/blob/846adafdfab579281353ea08a27bbb813f9a9872/sickchill/views/index.py#L35)
+-- and [here](https://github.com/SickChill/sickchill/blob/846adafdfab579281353ea08a27bbb813f9a9872/sickchill/views/index.py#L15)
+--
+-- __Writing a predicate with this fact and others__ ( motivation: [CVE-2024-53995](https://nvd.nist.gov/vuln/detail/CVE-2024-53995) )
+--
+-- @
+-- skip_level_subclass_of( Subclass, \'tornado.web.RequestHandler\' ) :-
+--     kb_class_def( Subclass, _, _ ),
+--     kb_class_has_1st_party_super( Subclass, ClassName, ClassDefinedInFile ),
+--     kb_class_def( Class, ClassName, ClassDefinedInFile )
+--     kb_class_has_3rd_party_super( Class, _, \'tornado.web.RequestHandler\' ).
+-- @
+--
+-- Other facts combined in this predicate:
+--
+--     * 'ClassDef'
+--     * 'ClassHas1stPartySuper'
+--
+data ClassHas3rdPartySuper = ClassHas3rdPartySuper
+    Class -- ^
+    Token.SuperName -- ^
+    SuperQualifiedName -- ^
     deriving ( Show, Eq, Ord, Generic, ToJSON, FromJSON )
 
 -- |
@@ -482,18 +565,22 @@ data Annotation = Annotation Location deriving ( Show, Eq, Ord, Generic, ToJSON,
 data ConstBoolTrue = ConstBoolTrue Location deriving ( Show, Eq, Ord, Generic, ToJSON, FromJSON )
 
 data Keyword = Keyword String deriving ( Show, Eq, Ord, Generic, ToJSON, FromJSON )
-data Resolved = Resolved Fqn deriving ( Show, Eq, Ord, Generic, ToJSON, FromJSON )
+data Resolved = Resolved Fqn.Fqn deriving ( Show, Eq, Ord, Generic, ToJSON, FromJSON )
 data ArgIndex = ArgIndex Word deriving ( Show, Eq, Ord, Generic, ToJSON, FromJSON )
 data ParamIndex = ParamIndex Word deriving ( Show, Eq, Ord, Generic, ToJSON, FromJSON )
 data MethodName = MethodName String deriving ( Show, Eq, Ord, Generic, ToJSON, FromJSON )
 data ConstStrValue = ConstStrValue String deriving ( Show, Eq, Ord, Generic, ToJSON, FromJSON )
+data SuperQualifiedName = SuperQualifiedName Fqn.Fqn deriving ( Show, Eq, Ord, Generic, ToJSON, FromJSON )
+
+data ClassDefinedInFile = ClassDefinedInFile FilePath deriving ( Show, Eq, Ord, Generic, ToJSON, FromJSON )
+data SuperDefinedInFile = SuperDefinedInFile FilePath deriving ( Show, Eq, Ord, Generic, ToJSON, FromJSON )
 
 -- |
 data ResolvedType = ResolvedType
-    Fqn -- ^
+    Fqn.Fqn -- ^
     deriving ( Show, Eq, Ord, Generic, ToJSON, FromJSON )
 
-data ResolvedSuper = ResolvedSuper Fqn deriving ( Show, Eq, Ord, Generic, ToJSON, FromJSON )
+data ResolvedSuper = ResolvedSuper Fqn.Fqn deriving ( Show, Eq, Ord, Generic, ToJSON, FromJSON )
 
 -- |
 -- * each fact is derived from a /single/ bitcode 'Bitcode.Instruction'
@@ -501,8 +588,8 @@ data ResolvedSuper = ResolvedSuper Fqn deriving ( Show, Eq, Ord, Generic, ToJSON
 -- * often, a single bitcode instruction will yield /more/ than one fact
 --
 data Fact
-   = ParamNameCtor ParamName
-   | ClassNameCtor ClassName
+   = ClassDefCtor ClassDef
+   | ParamNameCtor ParamName
    | ArgForCallCtor ArgForCall
    | ArgiForCallCtor ArgiForCall
    | ConstStringCtor ConstString
@@ -514,9 +601,10 @@ data Fact
    | ParamiOfCallableCtor ParamiOfCallable
    | KeywordArgForCallCtor KeywordArgForCall
    | ParamResolvedTypeCtor ParamResolvedType
-   | CallMethodOfSuperCtor CallMethodOfSuper
-   | ClassResolvedSuperCtor ClassResolvedSuper
+   | CallMethodOfClassCtor CallMethodOfClass
    | CallableAnnotationCtor CallableAnnotation
+   | ClassHas1stPartySuperCtor ClassHas1stPartySuper
+   | ClassHas3rdPartySuperCtor ClassHas3rdPartySuper
    deriving ( Show, Eq, Ord, Generic, ToJSON, FromJSON )
 
 -- |
@@ -530,7 +618,7 @@ data Fact
 --
 prologify :: Fact -> String
 prologify (ParamNameCtor content) = prologify_ParamName content
-prologify (ClassNameCtor content) = prologify_ClassName content
+prologify (ClassDefCtor content) = prologify_ClassDef content
 prologify (ArgForCallCtor content) = prologifyArgForCall content
 prologify (ArgiForCallCtor content) = prologifyArgiForCall content
 prologify (ConstStringCtor content) = prologify_ConstString content
@@ -541,22 +629,23 @@ prologify (ClassNamedSuperCtor content) = prologifyClassNamedSuper content
 prologify (ClassAnnotationCtor content) = prologify_ClassAnnotation content
 prologify (ParamiOfCallableCtor content) = prologify_ParamiOfCallable content
 prologify (ParamResolvedTypeCtor content) = prologify_ParamResolvedType content
-prologify (CallMethodOfSuperCtor content) = prologify_CallMethodOfSuper content
+prologify (CallMethodOfClassCtor content) = prologify_CallMethodOfClass content
 prologify (KeywordArgForCallCtor content) = prologify_KeywordArgForCall content
-prologify (ClassResolvedSuperCtor content) = prologifyClassResolvedSuper content
 prologify (CallableAnnotationCtor content) = prologify_CallableAnnotation content
+prologify (ClassHas1stPartySuperCtor content) = prologify_ClassHas1stPartySuper content
+prologify (ClassHas3rdPartySuperCtor content) = prologify_ClassHas3rdPartySuper content
 
 prologify_ParamResolvedType' :: Location -> String -> String
 prologify_ParamResolvedType' l fqn = printf "kb_param_has_type( %s, \'%s\' )." (locationify l) fqn
 
 prologify_ParamResolvedType :: ParamResolvedType -> String
-prologify_ParamResolvedType (ParamResolvedType (Param loc) (ResolvedType (Fqn content))) = prologify_ParamResolvedType' loc content
+prologify_ParamResolvedType (ParamResolvedType (Param loc) (ResolvedType fqn)) = prologify_ParamResolvedType' loc (show fqn)
 
-prologify_CallMethodOfSuper' :: Location -> String -> String -> String
-prologify_CallMethodOfSuper' call method super = printf "kb_call_method_of_super( %s, \'%s\', \'%s\' )." (locationify call) method super
+prologify_CallMethodOfClass' :: Location -> String -> Location -> String
+prologify_CallMethodOfClass' call method klass = printf "kb_call_method_of_class( %s, \'%s\', %s )." (locationify call) method (locationify klass)
 
-prologify_CallMethodOfSuper :: CallMethodOfSuper -> String
-prologify_CallMethodOfSuper (CallMethodOfSuper (Call loc) (MethodName m) (ResolvedSuper (Fqn s))) = prologify_CallMethodOfSuper' loc m s
+prologify_CallMethodOfClass :: CallMethodOfClass -> String
+prologify_CallMethodOfClass (CallMethodOfClass (Call loc) (MethodName m) (Class c)) = prologify_CallMethodOfClass' loc m c
 
 prologify_ParamName' :: Location -> String -> String
 prologify_ParamName' l name = printf "kb_param_has_name( %s, \'%s\' )." (locationify l) name
@@ -564,11 +653,11 @@ prologify_ParamName' l name = printf "kb_param_has_name( %s, \'%s\' )." (locatio
 prologify_ParamName :: ParamName -> String
 prologify_ParamName (ParamName (Param loc) (Token.ParamName (Token.Named name _))) = prologify_ParamName' loc name
 
-prologify_ClassName' :: Location -> String -> String
-prologify_ClassName' l name = printf "kb_class_name( %s, \'%s\' )." (locationify l) name
+prologify_ClassDef' :: Location -> String -> FilePath-> String
+prologify_ClassDef' l name f = printf "kb_class_def( %s, \'%s\', \'%s\' )." (locationify l) name (show f)
 
-prologify_ClassName :: ClassName -> String
-prologify_ClassName (ClassName (Class loc) (Token.ClassName (Token.Named name _))) = prologify_ClassName' loc name
+prologify_ClassDef :: ClassDef -> String
+prologify_ClassDef (ClassDef (Class loc) (Token.ClassName (Token.Named name _)) (ClassDefinedInFile f)) = prologify_ClassDef' loc name f
 
 unquote :: String -> String
 unquote = filter (/= '\'')
@@ -579,11 +668,15 @@ prologify_ConstString' l value = printf "kb_const_string( %s, \'%s\' )." (locati
 prologify_ConstString :: ConstString -> String
 prologify_ConstString (ConstString (ConstStr loc) (Token.ConstStr value _)) = prologify_ConstString' loc value
 
-prologify_CallResolved' :: Location -> String -> String
-prologify_CallResolved' call resolved = printf "kb_call_resolved( %s, \'%s\' )." (locationify call) resolved
+prologify_CallResolved'' :: Location -> String -> Token.ClassName -> String
+prologify_CallResolved'' call m c = printf "kb_call_method_of_class( %s, %s, %s )." (locationify call) m (locationify (Token.getClassNameLocation c))
+
+prologify_CallResolved' :: Location -> Fqn.Fqn -> String
+prologify_CallResolved' call (Fqn.CallMethodOfClass _ m c) = prologify_CallResolved'' call m c 
+prologify_CallResolved' call fqn = printf "kb_call_resolved( %s, \'%s\' )." (locationify call) (show fqn)
 
 prologify_CallResolved :: CallResolved -> String
-prologify_CallResolved (CallResolved (Call call) (Resolved (Fqn content))) = prologify_CallResolved' call content
+prologify_CallResolved (CallResolved (Call call) (Resolved fqn)) = prologify_CallResolved' call fqn
 
 prologify_ConstBoolTrue' :: Location -> String
 prologify_ConstBoolTrue' trueValue = printf "kb_class_name( %s, \'%s\' )." (locationify trueValue)
@@ -603,11 +696,18 @@ prologify_MethodOfClass' m c = printf "kb_method_of_class( %s, %s )." (locationi
 prologify_MethodOfClass :: MethodOfClass -> String
 prologify_MethodOfClass (MethodOfClass (Method m) (Class c)) = prologify_MethodOfClass' m c
 
-prologifyClassResolvedSuper' :: Location -> String -> String
-prologifyClassResolvedSuper' l s = printf "kb_class_has_resolved_super( %s, \'%s\' )." (locationify l) s
+prologify_ClassHas1stPartySuper' :: Location -> String -> FilePath -> String
+prologify_ClassHas1stPartySuper' c s f = printf "kb_class_has_1st_party_super( %s, \'%s\', \'%s\' )." (locationify c) s (show f)
  
-prologifyClassResolvedSuper :: ClassResolvedSuper -> String
-prologifyClassResolvedSuper (ClassResolvedSuper (Class c) (ResolvedSuper (Fqn fqn))) = prologifyClassResolvedSuper' c fqn
+prologify_ClassHas1stPartySuper :: ClassHas1stPartySuper -> String
+prologify_ClassHas1stPartySuper (ClassHas1stPartySuper (Class c) (Token.SuperName (Token.Named s _)) (SuperDefinedInFile f)) = prologify_ClassHas1stPartySuper' c s f
+
+prologify_ClassHas3rdPartySuper' :: Location -> String -> Fqn.Fqn -> String
+prologify_ClassHas3rdPartySuper' c s f = printf "kb_class_has_3rd_party_super( %s, \'%s\', \'%s\' )." (locationify c) s (show f)
+ 
+prologify_ClassHas3rdPartySuper :: ClassHas3rdPartySuper -> String
+prologify_ClassHas3rdPartySuper (ClassHas3rdPartySuper (Class c) (Token.SuperName (Token.Named s _)) (SuperQualifiedName f)) = prologify_ClassHas3rdPartySuper' c s f
+
 
 prologifyClassNamedSuper' :: Location -> String -> String
 prologifyClassNamedSuper' l s = printf "kb_class_has_named_super( %s, \'%s\' )." (locationify l) s
