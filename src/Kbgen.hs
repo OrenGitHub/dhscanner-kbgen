@@ -92,9 +92,13 @@ module Kbgen (
 
 where
 
+-- general imports
 import Data.Aeson
 import Text.Printf
 import GHC.Generics
+
+-- general qualified imports
+import qualified Data.List as List
 
 -- project imports
 import Location
@@ -653,8 +657,8 @@ prologify_ParamName' l name = printf "kb_param_has_name( %s, \'%s\' )." (locatio
 prologify_ParamName :: ParamName -> String
 prologify_ParamName (ParamName (Param loc) (Token.ParamName (Token.Named name _))) = prologify_ParamName' loc name
 
-prologify_ClassDef' :: Location -> String -> FilePath-> String
-prologify_ClassDef' l name f = printf "kb_class_def( %s, \'%s\', \'%s\' )." (locationify l) name (show f)
+prologify_ClassDef' :: Location -> String -> FilePath -> String
+prologify_ClassDef' l name f = printf "kb_class_def( %s, \'%s\', \'%s\' )." (locationify l) name f
 
 prologify_ClassDef :: ClassDef -> String
 prologify_ClassDef (ClassDef (Class loc) (Token.ClassName (Token.Named name _)) (ClassDefinedInFile f)) = prologify_ClassDef' loc name f
@@ -697,13 +701,13 @@ prologify_MethodOfClass :: MethodOfClass -> String
 prologify_MethodOfClass (MethodOfClass (Method m) (Class c)) = prologify_MethodOfClass' m c
 
 prologify_ClassHas1stPartySuper' :: Location -> String -> FilePath -> String
-prologify_ClassHas1stPartySuper' c s f = printf "kb_class_has_1st_party_super( %s, \'%s\', \'%s\' )." (locationify c) s (show f)
+prologify_ClassHas1stPartySuper' c s f = printf "kb_class_has_1st_party_super( %s, \'%s\', \'%s\' )." (locationify c) s f
  
 prologify_ClassHas1stPartySuper :: ClassHas1stPartySuper -> String
 prologify_ClassHas1stPartySuper (ClassHas1stPartySuper (Class c) (Token.SuperName (Token.Named s _)) (SuperDefinedInFile f)) = prologify_ClassHas1stPartySuper' c s f
 
 prologify_ClassHas3rdPartySuper' :: Location -> String -> Fqn.Fqn -> String
-prologify_ClassHas3rdPartySuper' c s f = printf "kb_class_has_3rd_party_super( %s, \'%s\', \'%s\' )." (locationify c) s (show f)
+prologify_ClassHas3rdPartySuper' c s f = printf "kb_class_has_3rd_party_super( %s, \'%s\', \'%s\' )." (locationify c) s (prologifyFqn f)
  
 prologify_ClassHas3rdPartySuper :: ClassHas3rdPartySuper -> String
 prologify_ClassHas3rdPartySuper (ClassHas3rdPartySuper (Class c) (Token.SuperName (Token.Named s _)) (SuperQualifiedName f)) = prologify_ClassHas3rdPartySuper' c s f
@@ -755,6 +759,16 @@ normalizeChar c = [c]
 
 normalize :: FilePath -> FilePath
 normalize path = concatMap normalizeChar path
+
+prologifyFqn :: Fqn.Fqn -> String
+prologifyFqn (Fqn.ThirdPartyImport fqn) = prologifyThirdPartyImport fqn
+prologifyFqn fqn = show fqn
+
+prologifyThirdPartyImport :: Fqn.ThirdPartyImportContent -> String
+prologifyThirdPartyImport (Fqn.ThirdPartyImportContent p [] Nothing _) = p
+prologifyThirdPartyImport (Fqn.ThirdPartyImportContent p [] (Just name) _) = p ++ "." ++ name
+prologifyThirdPartyImport (Fqn.ThirdPartyImportContent p rest Nothing _) = p ++ "." ++ List.intercalate "." rest
+prologifyThirdPartyImport (Fqn.ThirdPartyImportContent p rest (Just name) _) = p ++ "." ++ List.intercalate "." rest ++ "." ++ name
 
 locationify :: Location -> String
 locationify l = let
