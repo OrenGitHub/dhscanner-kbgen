@@ -55,21 +55,27 @@ module Kbgen (
     KeywordArgForCall(..),
     ParamResolvedType(..),
     ClassDef(..),
+    FuncDef(..),
+    Call1stPartyFuncDefinedInDir(..),
+    Call1stPartyFuncDefinedInFile(..),
     ParamName(..),
     CallMethodOfClass(..),
     ConstString(..),
-    ArgForCall(..),
     MethodOfClass(..),
     ClassHas1stPartySuper(..),
     ClassHas3rdPartySuper(..),
-    ClassNamedSuper(..),
+    CallMethodOfUntypedNamedParam(..),
     ArgiForCall(..),
+    DataflowEdge(..),
     ConstBoolTrue(..),
     ClassAnnotation,
     CallableAnnotation,
     ParamiOfCallable(..),
     prologify,
+    To(..),
     Arg(..),
+    From(..),
+    Func(..),
     Call(..),
     Class(..),
     Param(..),
@@ -79,10 +85,13 @@ module Kbgen (
     Resolved(..),
     ArgIndex(..),
     ParamIndex(..),
+    FuncName(..),
     MethodName(..),
     ResolvedType(..),
     CallResolved(..),
     ResolvedSuper(..),
+    FuncDefinedInDir(..),
+    FuncDefinedInFile(..),
     ClassDefinedInFile(..),
     SuperDefinedInFile(..),
     SuperQualifiedName(..),
@@ -232,6 +241,122 @@ data ClassDef = ClassDef
 
 -- |
 --
+-- __Name__
+--
+-- This is how the fact will look inside the Prolog file
+--
+-- @
+-- kb_func_def( Func, Name, DefinedInFile, DefinedInDir ).
+-- @
+--
+-- __When should I use this fact__ ( motivation: [CVE-2024-29028](https://nvd.nist.gov/vuln/detail/CVE-2024-29028) )
+--
+-- @
+-- # http_getter.go
+-- g.GET("/get/httpmeta", func(c echo.Context) error {
+--     urlStr := c.QueryParam("url")
+--     ...
+--     getter.GetHTMLMeta(urlStr)
+--
+-- # html_meta.go
+-- func GetHTMLMeta(urlStr string) (*HTMLMeta, error) {
+--     ...
+--     http.Get(urlStr)
+-- @
+--
+-- See complete source example [here](https://github.com/usememos/memos/blob/v0.14.0/api/v1/http_getter.go#L23),
+-- and [here](https://github.com/usememos/memos/blob/v0.14.0/plugin/http-getter/html_meta.go#L24)
+--
+-- __Writing a predicate with this fact and others__ ( motivation: [CVE-2024-29028](https://nvd.nist.gov/vuln/detail/CVE-2024-29028) )
+--
+-- @
+-- suspected_ssrf_sink( Func ) :-
+--     kb_resolved_call( Call, \'net/http.Get\' ),
+--     kb_arg_i_for_call( Arg, 0, Call ),
+--     utils_dataflow_path( Param, Arg ),
+--     kb_param_has_resolved_type( Param, \'string\' ),
+--     kb_param_i_of_callable( Param, _, Func ),
+--     kb_func_def( Func, Name, _, FuncDefinedInDir ),
+--     kb_call_1st_party_func_defined_in_dir( _, Name, FuncDefinedInDir ).
+-- @
+--
+-- Other facts combined in this predicate:
+--
+--     * 'CallResolved'
+--     * 'ArgiForCall'
+--     * 'ParamResolvedType'
+--     * 'ParamiOfCallable'
+--     * 'Call1stPartyFuncDefinedInDir'
+--
+data FuncDef = FuncDef
+    Func -- ^
+    Token.FuncName -- ^
+    FuncDefinedInFile -- ^
+    FuncDefinedInDir -- ^
+    deriving ( Show, Eq, Ord, Generic, ToJSON, FromJSON )
+
+-- |
+--
+-- __Name__
+--
+-- This is how the fact will look inside the Prolog file
+--
+-- @
+-- kb_call_1st_party_func_defined_in_dir( Call, Name, DefinedInDir ).
+-- @
+--
+-- __When should I use this fact__ ( motivation: [CVE-2024-29028](https://nvd.nist.gov/vuln/detail/CVE-2024-29028) )
+--
+-- @
+-- # http_getter.go
+-- g.GET("/get/httpmeta", func(c echo.Context) error {
+--     urlStr := c.QueryParam("url")
+--     ...
+--     getter.GetHTMLMeta(urlStr)
+--
+-- # html_meta.go
+-- func GetHTMLMeta(urlStr string) (*HTMLMeta, error) {
+--     ...
+--     http.Get(urlStr)
+-- @
+--
+-- See complete source example [here](https://github.com/usememos/memos/blob/v0.14.0/api/v1/http_getter.go#L23),
+-- and [here](https://github.com/usememos/memos/blob/v0.14.0/plugin/http-getter/html_meta.go#L24)
+--
+-- __Writing a predicate with this fact and others__ ( motivation: [CVE-2024-29028](https://nvd.nist.gov/vuln/detail/CVE-2024-29028) )
+--
+-- @
+-- suspected_ssrf_sink( Func ) :-
+--     kb_resolved_call( Call, \'net/http.Get\' ),
+--     kb_arg_i_for_call( Arg, 0, Call ),
+--     utils_dataflow_path( Param, Arg ),
+--     kb_param_has_resolved_type( Param, \'string\' ),
+--     kb_param_i_of_callable( Param, _, Func ),
+--     kb_func_def( Func, Name, _, FuncDefinedInDir ),
+--     kb_call_1st_party_func_from_dir( _, Name, FuncDefinedInDir ).
+-- @
+--
+-- Other facts combined in this predicate:
+--
+--     * 'CallResolved'
+--     * 'ArgiForCall'
+--     * 'ParamResolvedType'
+--     * 'ParamiOfCallable'
+--
+data Call1stPartyFuncDefinedInDir = Call1stPartyFuncDefinedInDir
+    Call -- ^
+    FuncName -- ^
+    FuncDefinedInDir -- ^
+    deriving ( Show, Eq, Ord, Generic, ToJSON, FromJSON )
+
+data Call1stPartyFuncDefinedInFile = Call1stPartyFuncDefinedInFile
+    Call -- ^
+    FuncName -- ^
+    FuncDefinedInFile -- ^
+    deriving ( Show, Eq, Ord, Generic, ToJSON, FromJSON )
+
+-- |
+--
 -- __Description:__
 --
 -- Input parameter of some callable ( method, function, lambda ) has the specified name
@@ -297,78 +422,6 @@ data ClassDef = ClassDef
 data ParamName = ParamName
     Param -- ^
     Token.ParamName -- ^
-    deriving ( Show, Eq, Ord, Generic, ToJSON, FromJSON )
-
--- |
---
--- __Name__
---
--- This is how the fact will look inside the Prolog file
---
--- @
--- kb_call_method_of_class( Call, Method, Class ).
--- @
---
--- __When should I use this fact__ ( motivation: [CVE-2024-53995](https://nvd.nist.gov/vuln/detail/CVE-2024-53995) )
---
--- @
--- # index.py
--- from tornado.web import RequestHandler
--- class BaseHandler(RequestHandler): ...
---
--- # authentication.py
--- class LoginHandler(BaseHandler):
---     def post(self, ...):
---         n = self.get_query_argument("next", ...)
---         self.redirect(n or ...)
--- @
---
--- See complete source example [here](https://github.com/SickChill/sickchill/blob/846adafdfab579281353ea08a27bbb813f9a9872/sickchill/views/authentication.py#L10),
--- [here](https://github.com/SickChill/sickchill/blob/846adafdfab579281353ea08a27bbb813f9a9872/sickchill/views/index.py#L35)
--- and [here](https://github.com/SickChill/sickchill/blob/846adafdfab579281353ea08a27bbb813f9a9872/sickchill/views/index.py#L15)
---
--- __Writing a predicate with this fact and others__ ( motivation: [CVE-2024-53995](https://nvd.nist.gov/vuln/detail/CVE-2024-53995) )
---
--- @
--- user_controlled_query_argument( Call ) :-
---     kb_call_method_of_class( Call, \'get_query_argument\', Class ),
---     kb_class_has_3rd_party_super( Class, \'tornado.web.RequestHandler\'),
---     kb_arg_i_for_call( QueryParamName, 0, Call),
---     kb_const_string( QueryParamName, _ ).
--- @
---
--- Other facts combined in this predicate:
---
---     * 'ClassHas3rdPartySuper'
---     * 'ArgiForCall'
---     * 'ConstString'
---
-data CallMethodOfClass = CallMethodOfClass
-    Call -- ^
-    MethodName -- ^
-    Class -- ^
-    deriving ( Show, Eq, Ord, Generic, ToJSON, FromJSON )
-
--- |
---
--- Usage:
---
--- @
--- kb_subclass_of( Class, SuperName ).
--- @
---
--- * usually used with 'ClassResolvedSuper'
--- * for bounded inheritance of third party classes
---
--- ==== __Example:__
---
--- @
--- kb_class_name(Class,ClassName).
--- @
---
-data ClassNamedSuper = ClassNamedSuper
-    Class -- ^
-    Token.SuperName -- ^
     deriving ( Show, Eq, Ord, Generic, ToJSON, FromJSON )
 
 -- |
@@ -464,6 +517,104 @@ data ClassHas3rdPartySuper = ClassHas3rdPartySuper
     deriving ( Show, Eq, Ord, Generic, ToJSON, FromJSON )
 
 -- |
+--
+-- __Name__
+--
+-- This is how the fact will look inside the Prolog file
+--
+-- @
+-- kb_call_method_of_class( Call, Method, Class ).
+-- @
+--
+-- __When should I use this fact__ ( motivation: [CVE-2024-53995](https://nvd.nist.gov/vuln/detail/CVE-2024-53995) )
+--
+-- @
+-- # index.py
+-- from tornado.web import RequestHandler
+-- class BaseHandler(RequestHandler): ...
+--
+-- # authentication.py
+-- class LoginHandler(BaseHandler):
+--     def post(self, ...):
+--         n = self.get_query_argument("next", ...)
+--         self.redirect(n or ...)
+-- @
+--
+-- See complete source example [here](https://github.com/SickChill/sickchill/blob/846adafdfab579281353ea08a27bbb813f9a9872/sickchill/views/authentication.py#L10),
+-- [here](https://github.com/SickChill/sickchill/blob/846adafdfab579281353ea08a27bbb813f9a9872/sickchill/views/index.py#L35)
+-- and [here](https://github.com/SickChill/sickchill/blob/846adafdfab579281353ea08a27bbb813f9a9872/sickchill/views/index.py#L15)
+--
+-- __Writing a predicate with this fact and others__ ( motivation: [CVE-2024-53995](https://nvd.nist.gov/vuln/detail/CVE-2024-53995) )
+--
+-- @
+-- user_controlled_query_argument( Call ) :-
+--     kb_call_method_of_class( Call, \'get_query_argument\', Class ),
+--     kb_class_has_3rd_party_super( Class, \'tornado.web.RequestHandler\'),
+--     kb_arg_i_for_call( QueryParamName, 0, Call),
+--     kb_const_string( QueryParamName, _ ).
+-- @
+--
+-- Other facts combined in this predicate:
+--
+--     * 'ClassHas3rdPartySuper'
+--     * 'ArgiForCall'
+--     * 'ConstString'
+--
+data CallMethodOfClass = CallMethodOfClass
+    Call -- ^
+    MethodName -- ^
+    Class -- ^
+    deriving ( Show, Eq, Ord, Generic, ToJSON, FromJSON )
+
+-- |
+--
+-- __Name__
+--
+-- This is how the fact will look inside the Prolog file
+--
+-- @
+-- kb_call_method_of_untyped_named_param( Param, ParamName, MethodName ).
+-- @
+--
+-- __When should I use this fact__ ( motivation: [CVE-2024-47769](https://nvd.nist.gov/vuln/detail/CVE-2024-47769) )
+--
+-- @
+-- // corePublicRouter.js
+-- const express = require('express');
+-- const router = express.Router();
+--
+-- router.route('...').get(function (req, res) {
+--     const { ..., file } = req.params;
+--     const fileName = file;
+--     return res.sendFile(fileName, ...);
+-- }
+-- @
+--
+-- See complete source example [here](https://github.com/idurar/idurar-erp-crm/blob/d7b2215a17bb2b52acfdab8f1646685d13df9a00/backend/src/routes/coreRoutes/corePublicRouter.js#L8-L24),
+--
+-- __Writing a predicate with this fact and others__ ( motivation: [CVE-2024-47769](https://nvd.nist.gov/vuln/detail/CVE-2024-47769) )
+--
+-- @
+-- arbitrary_file_read( Call ) :-
+--     kb_call_resolved( Call, \'express.Router.route.get\'),
+--     kb_call_method_of_untyped_named_param( Param, \'res\', \'sendFile\' ),
+--     kb_arg_i_for_call( Lambda, 0, Call ),
+--     kb_param_i_of_callable( Param, 1, Lambda ).
+-- @
+--
+-- Other facts combined in this predicate:
+--
+--     * 'CallResolved'
+--     * 'ArgiForCall'
+--     * 'ParamiOfCallable'
+--
+data CallMethodOfUntypedNamedParam = CallMethodOfUntypedNamedParam
+    Call -- ^
+    MethodName -- ^
+    Token.ParamName -- ^
+    deriving ( Show, Eq, Ord, Generic, ToJSON, FromJSON )
+
+-- |
 -- capture inheritance from third party classes
 data ClassAnnotation = ClassAnnotation
     Class -- ^
@@ -484,15 +635,53 @@ data MethodOfClass = MethodOfClass
 
 -- |
 --
--- Usage:
+-- __Name__
+--
+-- This is how the fact will look inside the Prolog file
 --
 -- @
--- ArgiForCall( Arg, Index, Call ).
+-- kb_arg_i_for_call( Arg, Index, Call ).
 -- @
+--
+-- __When should I use this fact__ ( motivation: [CVE-2024-47769](https://nvd.nist.gov/vuln/detail/CVE-2024-47769) )
+--
+-- @
+-- // corePublicRouter.js
+-- const express = require('express');
+-- const router = express.Router();
+--
+-- router.route('...').get(function (req, res) {
+--     const { ..., file } = req.params;
+--     const fileName = file;
+--     return res.sendFile(fileName, ...);
+-- }
+-- @
+--
+-- See complete source example [here](https://github.com/idurar/idurar-erp-crm/blob/d7b2215a17bb2b52acfdab8f1646685d13df9a00/backend/src/routes/coreRoutes/corePublicRouter.js#L8-L24),
+--
+-- __Writing a predicate with this fact and others__ ( motivation: [CVE-2024-47769](https://nvd.nist.gov/vuln/detail/CVE-2024-47769) )
+--
+-- @
+-- arbitrary_file_read( Call ) :-
+--     kb_call_resolved( Call, \'express.Router.route.get\'),
+--     kb_call_method_of_untyped_named_param( Param, \'res\', \'sendFile\' ),
+--     kb_arg_i_for_call( Lambda, 0, Call ),
+--     kb_param_i_of_callable( Param, 1, Lambda ).
+-- @
+--
+-- Other facts combined in this predicate:
+--
+--     * 'CallResolved'
+--     * 'CallMethodOfUntypedNamedParam'
+--     * 'ParamiOfCallable'
 --
 -- ==== __Tip 💡__
 --
--- sometimes the index is irrelevant, see 'ArgForCall'
+-- When the exact index is irrelevant, use:
+--
+-- @
+-- kb_arg_i_for_call( Arg, _, Call ).
+-- @
 --
 data ArgiForCall = ArgiForCall
     Arg -- ^
@@ -502,38 +691,72 @@ data ArgiForCall = ArgiForCall
 
 -- |
 --
--- Usage:
+-- __Name__
+--
+-- This is how the fact will look inside the Prolog file
 --
 -- @
--- arg_for_call( Arg, Call ).
+-- kb_param_i_of_callable( Param, Index, Callable ).
 -- @
+--
+-- __When should I use this fact__ ( motivation: [CVE-2024-29028](https://nvd.nist.gov/vuln/detail/CVE-2024-29028) )
+--
+-- @
+-- # http_getter.go
+-- g.GET("/get/httpmeta", func(c echo.Context) error {
+--     urlStr := c.QueryParam("url")
+--     ...
+--     getter.GetHTMLMeta(urlStr)
+--
+-- # html_meta.go
+-- func GetHTMLMeta(urlStr string) (*HTMLMeta, error) {
+--     ...
+--     http.Get(urlStr)
+-- @
+--
+-- See complete source example [here](https://github.com/usememos/memos/blob/v0.14.0/api/v1/http_getter.go#L23),
+-- and [here](https://github.com/usememos/memos/blob/v0.14.0/plugin/http-getter/html_meta.go#L24)
+--
+-- __Writing a predicate with this fact and others__ ( motivation: [CVE-2024-29028](https://nvd.nist.gov/vuln/detail/CVE-2024-29028) )
+--
+-- @
+-- suspected_ssrf_sink( Func ) :-
+--     kb_resolved_call( Call, \'net/http.Get\' ),
+--     kb_arg_i_for_call( Arg, 0, Call ),
+--     utils_dataflow_path( Param, Arg ),
+--     kb_param_has_resolved_type( Param, \'string\' ),
+--     kb_param_i_of_callable( Param, _, Func ),
+--     kb_func_def( Func, Name, _, FuncDefinedInDir ),
+--     kb_call_1st_party_func_defined_in_dir( _, Name, FuncDefinedInDir ).
+-- @
+--
+-- Other facts combined in this predicate:
+--
+--     * 'CallResolved'
+--     * 'ArgiForCall'
+--     * 'ParamResolvedType'
+--     * 'FuncDef'
+--     * 'Call1stPartyFuncDefinedInDir'
 --
 -- ==== __Tip 💡__
 --
--- sometimes the exact index is irrelevant, see 'ArgForCall'
---
-data ArgForCall = ArgForCall
-    Arg -- ^
-    Call -- ^
-    deriving ( Show, Eq, Ord, Generic, ToJSON, FromJSON )
-
--- |
---
--- Usage:
+-- When the _exact index_ is _irrelevant_, use:
 --
 -- @
--- ParamiOfCallable( Param, Index, Callable ).
+-- kb_param_i_of_callable( Param, _, Callable ).
 -- @
---
--- ==== __Tip 💡__
---
--- sometimes the exact index is irrelevant, see 'Arg_for_Call'
 --
 data ParamiOfCallable = ParamiOfCallable
     Param -- ^
     ParamIndex -- ^ 0-based
     Callable -- ^
     deriving ( Show, Eq, Ord, Generic, ToJSON, FromJSON )
+
+data CallResolved = CallResolved
+    Call -- ^
+    Resolved -- ^
+    deriving ( Show, Eq, Ord, Generic, ToJSON, FromJSON )
+
 
 -- |
 --
@@ -552,16 +775,29 @@ data ConstString = ConstString
     Token.ConstStr -- ^
     deriving ( Show, Eq, Ord, Generic, ToJSON, FromJSON )
 
+-- |
+--
+-- __Name__
+--
+-- This is how the fact will look inside the Prolog file
+--
+-- @
+-- kb_dataflow_edge( From, To ).
+-- @
+--
+data DataflowEdge = DataflowEdge
+    From -- ^
+    To -- ^
+    deriving ( Show, Eq, Ord, Generic, ToJSON, FromJSON )
+
 data Arg = Arg Location deriving ( Show, Eq, Ord, Generic, ToJSON, FromJSON )
 data Call = Call Location deriving ( Show, Eq, Ord, Generic, ToJSON, FromJSON )
 data Param = Param Location deriving ( Show, Eq, Ord, Generic, ToJSON, FromJSON )
 data Class = Class Location deriving ( Show, Eq, Ord, Generic, ToJSON, FromJSON )
 
-data CallResolved = CallResolved
-    Call -- ^
-    Resolved -- ^
-    deriving ( Show, Eq, Ord, Generic, ToJSON, FromJSON )
-
+data To = To Location deriving ( Show, Eq, Ord, Generic, ToJSON, FromJSON )
+data From = From Location deriving ( Show, Eq, Ord, Generic, ToJSON, FromJSON )
+data Func = Func Location deriving ( Show, Eq, Ord, Generic, ToJSON, FromJSON )
 data Method = Method Location deriving ( Show, Eq, Ord, Generic, ToJSON, FromJSON )
 data Callable = Callable Location deriving ( Show, Eq, Ord, Generic, ToJSON, FromJSON )
 data ConstStr = ConstStr Location deriving ( Show, Eq, Ord, Generic, ToJSON, FromJSON )
@@ -572,10 +808,13 @@ data Keyword = Keyword String deriving ( Show, Eq, Ord, Generic, ToJSON, FromJSO
 data Resolved = Resolved Fqn.Fqn deriving ( Show, Eq, Ord, Generic, ToJSON, FromJSON )
 data ArgIndex = ArgIndex Word deriving ( Show, Eq, Ord, Generic, ToJSON, FromJSON )
 data ParamIndex = ParamIndex Word deriving ( Show, Eq, Ord, Generic, ToJSON, FromJSON )
+data FuncName = FuncName String deriving ( Show, Eq, Ord, Generic, ToJSON, FromJSON )
 data MethodName = MethodName String deriving ( Show, Eq, Ord, Generic, ToJSON, FromJSON )
 data ConstStrValue = ConstStrValue String deriving ( Show, Eq, Ord, Generic, ToJSON, FromJSON )
 data SuperQualifiedName = SuperQualifiedName Fqn.Fqn deriving ( Show, Eq, Ord, Generic, ToJSON, FromJSON )
 
+data FuncDefinedInDir = FuncDefinedInDir FilePath deriving ( Show, Eq, Ord, Generic, ToJSON, FromJSON )
+data FuncDefinedInFile = FuncDefinedInFile FilePath deriving ( Show, Eq, Ord, Generic, ToJSON, FromJSON )
 data ClassDefinedInFile = ClassDefinedInFile FilePath deriving ( Show, Eq, Ord, Generic, ToJSON, FromJSON )
 data SuperDefinedInFile = SuperDefinedInFile FilePath deriving ( Show, Eq, Ord, Generic, ToJSON, FromJSON )
 
@@ -592,15 +831,15 @@ data ResolvedSuper = ResolvedSuper Fqn.Fqn deriving ( Show, Eq, Ord, Generic, To
 -- * often, a single bitcode instruction will yield /more/ than one fact
 --
 data Fact
-   = ClassDefCtor ClassDef
+   = FuncDefCtor FuncDef 
+   | ClassDefCtor ClassDef
    | ParamNameCtor ParamName
-   | ArgForCallCtor ArgForCall
    | ArgiForCallCtor ArgiForCall
    | ConstStringCtor ConstString
+   | DataflowEdgeCtor DataflowEdge
    | CallResolvedCtor CallResolved
    | ConstBoolTrueCtor ConstBoolTrue
    | MethodOfClassCtor MethodOfClass
-   | ClassNamedSuperCtor ClassNamedSuper
    | ClassAnnotationCtor ClassAnnotation
    | ParamiOfCallableCtor ParamiOfCallable
    | KeywordArgForCallCtor KeywordArgForCall
@@ -609,6 +848,9 @@ data Fact
    | CallableAnnotationCtor CallableAnnotation
    | ClassHas1stPartySuperCtor ClassHas1stPartySuper
    | ClassHas3rdPartySuperCtor ClassHas3rdPartySuper
+   | Call1stPartyFuncDefinedInDirCtor Call1stPartyFuncDefinedInDir
+   | Call1stPartyFuncDefinedInFileCtor Call1stPartyFuncDefinedInFile
+   | CallMethodOfUntypedNamedParamCtor CallMethodOfUntypedNamedParam
    deriving ( Show, Eq, Ord, Generic, ToJSON, FromJSON )
 
 -- |
@@ -621,15 +863,15 @@ data Fact
 -- @
 --
 prologify :: Fact -> String
-prologify (ParamNameCtor content) = prologify_ParamName content
+prologify (FuncDefCtor content) = prologify_FuncDef content
 prologify (ClassDefCtor content) = prologify_ClassDef content
-prologify (ArgForCallCtor content) = prologifyArgForCall content
+prologify (ParamNameCtor content) = prologify_ParamName content
 prologify (ArgiForCallCtor content) = prologifyArgiForCall content
 prologify (ConstStringCtor content) = prologify_ConstString content
+prologify (DataflowEdgeCtor content) = prologify_DataflowEdge content
 prologify (CallResolvedCtor content) = prologify_CallResolved content
 prologify (ConstBoolTrueCtor content) = prologify_ConstBoolTrue content
 prologify (MethodOfClassCtor content) = prologify_MethodOfClass content
-prologify (ClassNamedSuperCtor content) = prologifyClassNamedSuper content
 prologify (ClassAnnotationCtor content) = prologify_ClassAnnotation content
 prologify (ParamiOfCallableCtor content) = prologify_ParamiOfCallable content
 prologify (ParamResolvedTypeCtor content) = prologify_ParamResolvedType content
@@ -638,12 +880,14 @@ prologify (KeywordArgForCallCtor content) = prologify_KeywordArgForCall content
 prologify (CallableAnnotationCtor content) = prologify_CallableAnnotation content
 prologify (ClassHas1stPartySuperCtor content) = prologify_ClassHas1stPartySuper content
 prologify (ClassHas3rdPartySuperCtor content) = prologify_ClassHas3rdPartySuper content
+prologify (Call1stPartyFuncDefinedInDirCtor content) = prologify_Call1stPartyFuncDefinedInDir content
+prologify (CallMethodOfUntypedNamedParamCtor content) = prologify_CallMethodOfUntypedNamedParam content
 
 prologify_ParamResolvedType' :: Location -> String -> String
-prologify_ParamResolvedType' l fqn = printf "kb_param_has_type( %s, \'%s\' )." (locationify l) fqn
+prologify_ParamResolvedType' l fqn = printf "kb_param_has_resolved_type( %s, \'%s\' )." (locationify l) fqn
 
 prologify_ParamResolvedType :: ParamResolvedType -> String
-prologify_ParamResolvedType (ParamResolvedType (Param loc) (ResolvedType fqn)) = prologify_ParamResolvedType' loc (show fqn)
+prologify_ParamResolvedType (ParamResolvedType (Param loc) (ResolvedType fqn)) = prologify_ParamResolvedType' loc (prologifyFqn fqn)
 
 prologify_CallMethodOfClass' :: Location -> String -> Location -> String
 prologify_CallMethodOfClass' call method klass = printf "kb_call_method_of_class( %s, \'%s\', %s )." (locationify call) method (locationify klass)
@@ -663,6 +907,12 @@ prologify_ClassDef' l name f = printf "kb_class_def( %s, \'%s\', \'%s\' )." (loc
 prologify_ClassDef :: ClassDef -> String
 prologify_ClassDef (ClassDef (Class loc) (Token.ClassName (Token.Named name _)) (ClassDefinedInFile f)) = prologify_ClassDef' loc name f
 
+prologify_FuncDef' :: Location -> String -> FilePath -> FilePath -> String
+prologify_FuncDef' l name f d = printf "kb_func_def( %s, \'%s\', \'%s\', \'%s\' )." (locationify l) name f d
+
+prologify_FuncDef :: FuncDef -> String
+prologify_FuncDef (FuncDef (Func loc) (Token.FuncName (Token.Named name _)) (FuncDefinedInFile f) (FuncDefinedInDir d)) = prologify_FuncDef' loc name f d
+
 unquote :: String -> String
 unquote = filter (/= '\'')
 
@@ -677,7 +927,13 @@ prologify_CallResolved'' call m c = printf "kb_call_method_of_class( %s, %s, %s 
 
 prologify_CallResolved' :: Location -> Fqn.Fqn -> String
 prologify_CallResolved' call (Fqn.CallMethodOfClass _ m c) = prologify_CallResolved'' call m c 
-prologify_CallResolved' call fqn = printf "kb_call_resolved( %s, \'%s\' )." (locationify call) (show fqn)
+prologify_CallResolved' call fqn = printf "kb_call_resolved( %s, \'%s\' )." (locationify call) (prologifyFqn fqn)
+
+prologify_DataflowEdge :: DataflowEdge -> String
+prologify_DataflowEdge (DataflowEdge (From u) (To v)) = prologify_DataflowEdge' u v
+
+prologify_DataflowEdge' :: Location -> Location -> String
+prologify_DataflowEdge' u v = printf "kb_dataflow_edge( %s, %s )." (locationify u) (locationify v)
 
 prologify_CallResolved :: CallResolved -> String
 prologify_CallResolved (CallResolved (Call call) (Resolved fqn)) = prologify_CallResolved' call fqn
@@ -687,12 +943,6 @@ prologify_ConstBoolTrue' trueValue = printf "kb_class_name( %s, \'%s\' )." (loca
 
 prologify_ConstBoolTrue :: ConstBoolTrue -> String
 prologify_ConstBoolTrue (ConstBoolTrue trueValue) = prologify_ConstBoolTrue' trueValue
-
-prologifyArgForCall' :: Location -> Location -> String
-prologifyArgForCall' a c = printf "kb_arg_for_call( %s, %s )." (locationify a) (locationify c)
-
-prologifyArgForCall :: ArgForCall -> String
-prologifyArgForCall (ArgForCall (Arg a) (Call c)) = prologifyArgForCall' a c
 
 prologify_MethodOfClass' :: Location -> Location -> String
 prologify_MethodOfClass' m c = printf "kb_method_of_class( %s, %s )." (locationify m) (locationify c)
@@ -712,12 +962,23 @@ prologify_ClassHas3rdPartySuper' c s f = printf "kb_class_has_3rd_party_super( %
 prologify_ClassHas3rdPartySuper :: ClassHas3rdPartySuper -> String
 prologify_ClassHas3rdPartySuper (ClassHas3rdPartySuper (Class c) (Token.SuperName (Token.Named s _)) (SuperQualifiedName f)) = prologify_ClassHas3rdPartySuper' c s f
 
+prologify_Call1stPartyFuncDefinedInDir :: Call1stPartyFuncDefinedInDir -> String
+prologify_Call1stPartyFuncDefinedInDir (Call1stPartyFuncDefinedInDir call func d) = prologify_Call1stPartyFuncDefinedInDir' call func d
 
-prologifyClassNamedSuper' :: Location -> String -> String
-prologifyClassNamedSuper' l s = printf "kb_class_has_named_super( %s, \'%s\' )." (locationify l) s
+prologify_Call1stPartyFuncDefinedInDir' :: Call -> FuncName -> FuncDefinedInDir -> String
+prologify_Call1stPartyFuncDefinedInDir' (Call call) (FuncName f) (FuncDefinedInDir d) = prologify_Call1stPartyFuncDefinedInDir'' call f d
 
-prologifyClassNamedSuper :: ClassNamedSuper -> String
-prologifyClassNamedSuper (ClassNamedSuper (Class c) (Token.SuperName (Token.Named name _))) = prologifyClassNamedSuper' c name
+prologify_Call1stPartyFuncDefinedInDir'' :: Location -> String -> FilePath -> String
+prologify_Call1stPartyFuncDefinedInDir'' call f d = printf "kb_call_1st_party_func_defined_in_dir( %s, \'%s\', \'%s\' )." (locationify call) f d
+
+prologify_CallMethodOfUntypedNamedParam :: CallMethodOfUntypedNamedParam -> String
+prologify_CallMethodOfUntypedNamedParam (CallMethodOfUntypedNamedParam call method p) = prologify_CallMethodOfUntypedNamedParam' call method p
+
+prologify_CallMethodOfUntypedNamedParam' :: Call -> MethodName -> Token.ParamName -> String
+prologify_CallMethodOfUntypedNamedParam' (Call call) (MethodName m) (Token.ParamName (Token.Named _ p)) = prologify_CallMethodOfUntypedNamedParam'' call m p
+
+prologify_CallMethodOfUntypedNamedParam'' :: Location -> String -> Location -> String
+prologify_CallMethodOfUntypedNamedParam'' call m p = printf "kb_call_method_of_untyped_named_param( %s, \'%s\', %s )." (locationify call) m (locationify p)
 
 prologifyArgiForCall' :: Location -> Word -> Location -> String
 prologifyArgiForCall' a i c = printf "kb_arg_i_for_call( %s, %u, %s )." (locationify a) i (locationify c)
@@ -762,6 +1023,7 @@ normalize path = concatMap normalizeChar path
 
 prologifyFqn :: Fqn.Fqn -> String
 prologifyFqn (Fqn.ThirdPartyImport fqn) = prologifyThirdPartyImport fqn
+prologifyFqn (Fqn.FieldedAccess fqn fieldName) = prologifyFieldedAccess fqn fieldName
 prologifyFqn fqn = show fqn
 
 prologifyThirdPartyImport :: Fqn.ThirdPartyImportContent -> String
@@ -769,6 +1031,9 @@ prologifyThirdPartyImport (Fqn.ThirdPartyImportContent p [] Nothing _) = p
 prologifyThirdPartyImport (Fqn.ThirdPartyImportContent p [] (Just name) _) = p ++ "." ++ name
 prologifyThirdPartyImport (Fqn.ThirdPartyImportContent p rest Nothing _) = p ++ "." ++ List.intercalate "." rest
 prologifyThirdPartyImport (Fqn.ThirdPartyImportContent p rest (Just name) _) = p ++ "." ++ List.intercalate "." rest ++ "." ++ name
+
+prologifyFieldedAccess :: Fqn.Fqn -> Token.FieldName -> String
+prologifyFieldedAccess fqn (Token.FieldName (Token.Named fieldName _)) = (prologifyFqn fqn) ++ "." ++ fieldName
 
 locationify :: Location -> String
 locationify l = let

@@ -33,7 +33,7 @@ description:
         * explain in plain English your query's purpose
         * et voilà !
 
-version:            1.0.21
+version:            1.0.32
 license:            GPL-3.0-only
 license-file:       LICENSE
 author:             OrenGitHub
@@ -45,7 +45,7 @@ build-type:         Simple
 
 common ghc_options
 
-    ghc-options: -Wall -O2
+    ghc-options: -Wall -Werror=incomplete-patterns -O2
 
 library
 
@@ -59,8 +59,8 @@ library
         aeson < 2.3,
         base >= 4.18 && < 4.19,
         containers < 0.7,
-        dhscanner-ast >= 1.1.4,
-        dhscanner-bitcode >= 1.0.14
+        dhscanner-ast >= 1.1.5,
+        dhscanner-bitcode >= 1.0.16
 
     hs-source-dirs:
         src
