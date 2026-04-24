@@ -57,6 +57,7 @@ module Kbgen (
     ClassDef(..),
     FuncDef(..),
     Call1stPartyFuncDefinedInDir(..),
+    AssignValueToToplevelVarName(..),
     Call1stPartyFuncDefinedInFile(..),
     ParamName(..),
     CallMethodOfClass(..),
@@ -89,6 +90,7 @@ module Kbgen (
     MethodName(..),
     ResolvedType(..),
     CallResolved(..),
+    AssignedValue(..),
     ResolvedSuper(..),
     FuncDefinedInDir(..),
     FuncDefinedInFile(..),
@@ -96,7 +98,9 @@ module Kbgen (
     SuperDefinedInFile(..),
     SuperQualifiedName(..),
     ConstStr(..),
-    Fact(..)
+    Fact(..),
+    locationify,
+    restoreloc
 )
 
 where
@@ -104,7 +108,11 @@ where
 -- general imports
 import Data.Aeson
 import Text.Printf
-import GHC.Generics
+import GHC.Generics (Generic)
+import System.FilePath (takeDirectory)
+import Data.Attoparsec.Text (Parser, char, decimal, parseOnly, string, takeText)
+import Data.Text (Text)
+import qualified Data.Text as T
 
 -- general qualified imports
 import qualified Data.List as List
@@ -353,6 +361,11 @@ data Call1stPartyFuncDefinedInFile = Call1stPartyFuncDefinedInFile
     Call -- ^
     FuncName -- ^
     FuncDefinedInFile -- ^
+    deriving ( Show, Eq, Ord, Generic, ToJSON, FromJSON )
+
+data AssignValueToToplevelVarName = AssignValueToToplevelVarName
+    AssignedValue -- ^
+    Token.VarName -- ^
     deriving ( Show, Eq, Ord, Generic, ToJSON, FromJSON )
 
 -- |
@@ -802,6 +815,7 @@ data Method = Method Location deriving ( Show, Eq, Ord, Generic, ToJSON, FromJSO
 data Callable = Callable Location deriving ( Show, Eq, Ord, Generic, ToJSON, FromJSON )
 data ConstStr = ConstStr Location deriving ( Show, Eq, Ord, Generic, ToJSON, FromJSON )
 data Annotation = Annotation Location deriving ( Show, Eq, Ord, Generic, ToJSON, FromJSON )
+data AssignedValue = AssignedValue Location deriving ( Show, Eq, Ord, Generic, ToJSON, FromJSON )
 data ConstBoolTrue = ConstBoolTrue Location deriving ( Show, Eq, Ord, Generic, ToJSON, FromJSON )
 
 data Keyword = Keyword String deriving ( Show, Eq, Ord, Generic, ToJSON, FromJSON )
@@ -848,6 +862,7 @@ data Fact
    | CallableAnnotationCtor CallableAnnotation
    | ClassHas1stPartySuperCtor ClassHas1stPartySuper
    | ClassHas3rdPartySuperCtor ClassHas3rdPartySuper
+   | AssignValueToToplevelVarNameCtor AssignValueToToplevelVarName
    | Call1stPartyFuncDefinedInDirCtor Call1stPartyFuncDefinedInDir
    | Call1stPartyFuncDefinedInFileCtor Call1stPartyFuncDefinedInFile
    | CallMethodOfUntypedNamedParamCtor CallMethodOfUntypedNamedParam
@@ -880,7 +895,9 @@ prologify (KeywordArgForCallCtor content) = prologify_KeywordArgForCall content
 prologify (CallableAnnotationCtor content) = prologify_CallableAnnotation content
 prologify (ClassHas1stPartySuperCtor content) = prologify_ClassHas1stPartySuper content
 prologify (ClassHas3rdPartySuperCtor content) = prologify_ClassHas3rdPartySuper content
+prologify (AssignValueToToplevelVarNameCtor content) = prologify_AssignValueToToplevelVarName content
 prologify (Call1stPartyFuncDefinedInDirCtor content) = prologify_Call1stPartyFuncDefinedInDir content
+prologify (Call1stPartyFuncDefinedInFileCtor content) = prologify_Call1stPartyFuncDefinedInFile content
 prologify (CallMethodOfUntypedNamedParamCtor content) = prologify_CallMethodOfUntypedNamedParam content
 
 prologify_ParamResolvedType' :: Location -> String -> String
@@ -962,6 +979,24 @@ prologify_ClassHas3rdPartySuper' c s f = printf "kb_class_has_3rd_party_super( %
 prologify_ClassHas3rdPartySuper :: ClassHas3rdPartySuper -> String
 prologify_ClassHas3rdPartySuper (ClassHas3rdPartySuper (Class c) (Token.SuperName (Token.Named s _)) (SuperQualifiedName f)) = prologify_ClassHas3rdPartySuper' c s f
 
+prologify_AssignValueToToplevelVarName :: AssignValueToToplevelVarName -> String
+prologify_AssignValueToToplevelVarName (AssignValueToToplevelVarName value varname) = prologify_AssignValueToToplevelVarName' value varname
+
+prologify_AssignValueToToplevelVarName' :: AssignedValue -> Token.VarName -> String
+prologify_AssignValueToToplevelVarName' (AssignedValue value) (Token.VarName (Token.Named varname l)) = prologify_AssignValueToToplevelVarName'' value varname (Location.filename l)
+
+prologify_AssignValueToToplevelVarName'' :: Location -> String -> FilePath -> String
+prologify_AssignValueToToplevelVarName'' value varname f = printf "kb_assign_value_to_toplevel_varname( %s, \'%s\', \'%s\', \'%s\')." (locationify value) varname f (takeDirectory f)
+
+prologify_Call1stPartyFuncDefinedInFile :: Call1stPartyFuncDefinedInFile -> String
+prologify_Call1stPartyFuncDefinedInFile (Call1stPartyFuncDefinedInFile call func f) = prologify_Call1stPartyFuncDefinedInFile' call func f
+
+prologify_Call1stPartyFuncDefinedInFile' :: Call -> FuncName -> FuncDefinedInFile -> String
+prologify_Call1stPartyFuncDefinedInFile' (Call call) (FuncName func) (FuncDefinedInFile f) = prologify_Call1stPartyFuncDefinedInFile'' call func f
+
+prologify_Call1stPartyFuncDefinedInFile'' :: Location -> String -> FilePath -> String
+prologify_Call1stPartyFuncDefinedInFile'' call func f = printf "kb_call_1st_party_func_defined_in_file( %s, \'%s\', \'%s\' )." (locationify call) func f
+
 prologify_Call1stPartyFuncDefinedInDir :: Call1stPartyFuncDefinedInDir -> String
 prologify_Call1stPartyFuncDefinedInDir (Call1stPartyFuncDefinedInDir call func d) = prologify_Call1stPartyFuncDefinedInDir' call func d
 
@@ -1016,6 +1051,8 @@ normalizeChar '.' = "_dot_"
 normalizeChar '-' = "_dash_"
 normalizeChar '['  = "_lbrack_"
 normalizeChar ']'  = "_rbrack_"
+normalizeChar '('  = "_lparen_"
+normalizeChar ')'  = "_rparen_"
 normalizeChar c = [c]
 
 normalize :: FilePath -> FilePath
@@ -1043,3 +1080,50 @@ locationify l = let
     w = Location.colEnd l
     f = normalize (Location.filename l)
     in printf "startloc_%u_%u_endloc_%u_%u_%s" x y z w f
+
+restoreloc :: String -> Maybe Location
+restoreloc s = case parseOnly locationParser (T.pack s) of { Right l -> Just l; _ -> Nothing; }
+
+locationParser :: Parser Location
+locationParser = do {
+
+    _ <- string "startloc_"; x <- decimal; _ <- char '_'; y <- decimal;
+    _ <- string "_endloc_" ; z <- decimal; _ <- char '_'; w <- decimal;
+    _ <- char '_'; fname <- takeText;
+
+    pure Location {
+        filename  = restoreFilename (T.unpack fname),
+        lineStart = x,
+        colStart = y,
+        lineEnd = z,
+        colEnd = w
+    }
+}
+
+data Rule = Rule { from :: Text, to :: Text }
+
+rules :: [ Rule ]
+rules =
+    [ Rule { from = "_slash_",  to = "/" }
+    , Rule { from = "_dot_",    to = "." }
+    , Rule { from = "_dash_",   to = "-" }
+    , Rule { from = "_lbrack_", to = "[" }
+    , Rule { from = "_rbrack_", to = "]" }
+    , Rule { from = "_lparen_", to = "(" }
+    , Rule { from = "_rparen_", to = ")" }
+    ]
+
+applyRule :: Rule -> Text -> Text
+applyRule Rule { from = f, to = t } = T.replace f t
+
+applyRuleStep :: Text -> Rule -> Text
+applyRuleStep acc r = applyRule r acc
+
+restore :: Text -> Text
+restore txt = List.foldl' applyRuleStep txt rules
+
+textToStringAdapter :: (Text -> Text) -> String -> String
+textToStringAdapter f = T.unpack . f . T.pack
+
+restoreFilename :: String -> String
+restoreFilename = textToStringAdapter restore

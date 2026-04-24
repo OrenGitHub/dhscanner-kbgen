@@ -33,7 +33,7 @@ description:
         * explain in plain English your query's purpose
         * et voilà !
 
-version:            1.0.32
+version:            1.0.34
 license:            GPL-3.0-only
 license-file:       LICENSE
 author:             OrenGitHub
@@ -57,13 +57,43 @@ library
 
     build-depends:
         aeson < 2.3,
-        base >= 4.18 && < 4.19,
+        attoparsec,
+        filepath,
+        base >= 4.18 && < 4.21,
         containers < 0.7,
+        text,
         dhscanner-ast >= 1.1.5,
         dhscanner-bitcode >= 1.0.16
 
     hs-source-dirs:
         src
+
+    default-language:
+        Haskell2010
+
+test-suite restoreloc
+
+    import:
+        ghc_options
+
+    type:
+        exitcode-stdio-1.0
+
+    hs-source-dirs:
+        test
+
+    main-is:
+        Test.hs
+
+    other-modules:
+        SmokeTests
+
+    build-depends:
+        base >= 4.18 && < 4.21,
+        dhscanner-kbgen,
+        dhscanner-ast >= 1.1.5,
+        hspec,
+        QuickCheck
 
     default-language:
         Haskell2010
